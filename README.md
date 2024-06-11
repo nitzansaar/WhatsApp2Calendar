@@ -44,7 +44,7 @@ python main.py
 parse the message and create an event in Google Calendar.
 - If the message does not contain valid event details, it will be ignored.
 - You can monitor the terminal for logs indicating the success or failure of event creation.
-What I Learned
+
 During this project, I learned how to:
 
 1. Use Selenium to automate web interactions and extract data from WhatsApp Web.
