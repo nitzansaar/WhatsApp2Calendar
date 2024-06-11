@@ -67,14 +67,14 @@ def parse_event_details_with_openai(event_details):
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            temperature=0,
+            temperature=0.2,
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that extracts structured event details from text."},
                 {"role": "user", "content": f"Extract the following details from this text: {event_details}\n"
                                             "Provide the extracted details in the following format:\n"
                                             "Booking Date: <booking_date>\n"
                                             "Event Date: <event_date>\n"
-                                            "Event Time: <event_time>\n"
+                                            "Event Time: <event_time> (if available)\n"
                                             "Phone: <phone>\n"
                                             "Name: <name>\n"
                                             "Address: <address>\n"
@@ -83,6 +83,7 @@ def parse_event_details_with_openai(event_details):
                                             "Zip Code: <zip_code>\n"
                                             "Description: <description>\n"
                                             "Note that the address ends after the zip code, and the address may be separated by tabs.\n"
+                                            "Ignore any message that does not have an event time.\n"
                                             "Examples:\n"
                                             "Booking Date: 6.4.24\n"
                                             "Event Date: 6.6.24\n"
@@ -128,19 +129,26 @@ def parse_event_details_with_openai(event_details):
         )
         
         result = response['choices'][0]['message']['content'].strip()
+        print(f"Parsed result: {result}")  # Log the parsed result
         # Split by lines and map to the corresponding variables
         details = {}
         for line in result.split('\n'):
             if ': ' in line:
                 key, value = line.split(': ', 1)
                 details[key] = value
-        return details
+        # Only return details if the Event Time is present
+        if "Event Time" in details and details["Event Time"].strip():
+            return details
+        else:
+            print("No event time found; ignoring this entry.")
+            return {}
     except openai.error.RateLimitError:
         print("Rate limit exceeded. Please wait and try again later.")
         return {}
     except openai.error.InvalidRequestError as e:
         print(f"Invalid request error: {e}")
         return {}
+
 
 def normalize_time_format(time_str):
     # Ensure the time format is consistent (e.g., "530pm" -> "5:30pm")
@@ -164,9 +172,10 @@ def preprocess_event_details(event_details):
 
 def create_event(service, parsed_details):
     required_fields = ["Event Date", "Event Time", "Phone", "Name", "Address", "City", "State", "Zip Code", "Description"]
+    print(f"Parsed details before creating event: {parsed_details}")  # Log the parsed details
     if not all(field in parsed_details for field in required_fields):
         print("Failed to parse event details correctly. Parsed details:", parsed_details)
-        return
+        return False
     
     event_date = parsed_details["Event Date"]
     event_time = normalize_time_format(parsed_details["Event Time"])
@@ -187,7 +196,7 @@ def create_event(service, parsed_details):
             event_datetime = datetime.datetime.strptime(event_datetime_str, "%m.%d.%y %I%p")
         except ValueError:
             print("Invalid date/time format. Please check the input.")
-            return
+            return False
 
     # Start and end time of the event
     start_datetime = event_datetime.isoformat()
@@ -216,8 +225,11 @@ def create_event(service, parsed_details):
     try:
         event = service.events().insert(calendarId='primary', body=event).execute()
         print(f'Event created: {event.get("htmlLink")}')
+        return True
     except HttpError as error:
         print(f"An error occurred: {error}")
+        return False
+
 
 def main():
     creds = None
@@ -250,7 +262,13 @@ def main():
                 for block in event_blocks:
                     parsed_details = parse_event_details_with_openai(block.strip())
                     if parsed_details:
-                        create_event(service, parsed_details)
+                        success = create_event(service, parsed_details)
+                        if success:
+                            print(f"Event created for message: {message}")
+                        else:
+                            print(f"Failed to create event for message: {message}")
+                    else:
+                        print(f"No valid event details found in message: {message}")
 
             time.sleep(5)  # Check every 5 seconds
 
@@ -259,3 +277,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
