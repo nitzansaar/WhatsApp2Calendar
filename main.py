@@ -44,15 +44,15 @@ def get_new_messages():
     current_message_count = len(messages)
 
     # If the current message count is greater than the previous count, print the new messages
-    if current_message_count > previous_message_count:
-        new_messages = messages[previous_message_count:current_message_count]
-        new_message_texts = [message.text for message in new_messages]
-        
-        # Update the previous message count
-        previous_message_count = current_message_count
-        
-        return new_message_texts
-    return []
+    # if current_message_count > previous_message_count:
+    new_messages = messages[previous_message_count:current_message_count]
+    new_message_texts = [message.text for message in new_messages]
+    
+    # Update the previous message count
+    # previous_message_count = current_message_count
+    
+    return new_message_texts
+    
 
 # Load environment variables from .env file
 load_dotenv()
@@ -67,7 +67,7 @@ def parse_event_details_with_openai(event_details):
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            temperature=0.2,
+            temperature=0,
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that extracts structured event details from text."},
                 {"role": "user", "content": f"Extract the following details from this text: {event_details}\n"
@@ -83,6 +83,7 @@ def parse_event_details_with_openai(event_details):
                                             "Zip Code: <zip_code>\n"
                                             "Description: <description>\n"
                                             "Note that the address ends after the zip code, and the address may be separated by tabs.\n"
+                                            "Note that there may be a space between the time and 'am' or 'pm'"
                                             "Ignore any message that does not have an event time.\n"
                                             "Examples:\n"
                                             "Booking Date: 6.4.24\n"
@@ -277,4 +278,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
