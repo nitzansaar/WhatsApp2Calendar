@@ -274,7 +274,7 @@ def main():
             time.sleep(5)  # Check every 5 seconds
 
     except HttpError as error:
-        print(f"An error occurred: {error}")
+        print(f"An error occurred!: {error}")
 
 if __name__ == "__main__":
     main()
